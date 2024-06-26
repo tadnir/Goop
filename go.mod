@@ -1,4 +1,4 @@
-module gooper
+module goop
 
 go 1.19
 

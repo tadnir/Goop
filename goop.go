@@ -124,7 +124,7 @@ func Parse(path string) (packageName string, structs []*Struct, err error) {
 			}
 
 			tag := reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1])
-			tagValue, ok := tag.Lookup("gooper")
+			tagValue, ok := tag.Lookup("goop")
 			if !ok {
 				continue
 			}
@@ -201,7 +201,7 @@ func Parse(path string) (packageName string, structs []*Struct, err error) {
 		//	return fmt.Errorf("Unable to extract Name from a class struct.")
 		//}
 		//
-		//// parse the gooper tag and build columns
+		//// parse the goop tag and build columns
 		//sdecl := tdecl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType)
 		//fields := sdecl.Fields.List
 		//for _, field := range fields {
@@ -319,7 +319,7 @@ func main() {
 		}
 
 		dir, file := filepath.Split(strings.TrimSuffix(path, ".go"))
-		outputPath := filepath.Join(dir, fmt.Sprintf("%s_gooper.go", file))
+		outputPath := filepath.Join(dir, fmt.Sprintf("%s_goop.go", file))
 
 		packageName, structs, err := Parse(path)
 		if err != nil {
