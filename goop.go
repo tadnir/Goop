@@ -312,6 +312,7 @@ func (this *{{$struct.Name}}) initVtable() {
 }
 
 func main() {
+	fmt.Printf("Gooping..")
 	fmt.Printf("%v\n", os.Args)
 	for _, path := range os.Args[1:] {
 		if !strings.HasSuffix(path, ".go") {
