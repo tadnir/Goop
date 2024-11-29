@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 func MapItems[K comparable, V interface{}](mapObj map[K]V) []V {
 	var values []V
 	for _, v := range mapObj {
@@ -25,4 +27,8 @@ func Flatten[T interface{}](matrix [][]T) []T {
 	}
 
 	return values
+}
+
+func Capitalize(str string) string {
+	return strings.ToUpper(string(str[0])) + str[1:]
 }

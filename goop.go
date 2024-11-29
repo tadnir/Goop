@@ -22,19 +22,73 @@ type VTable struct {
 	functions []VFunc
 }
 
+func (v VTable) IsInitName() string {
+	return fmt.Sprintf("is%vInit", Capitalize(v.name))
+}
+
 type VFunc struct {
 	name      string
 	signature string
 }
 
 type Override struct {
-	overriddenVtable string
+	overriddenVtable *VTable
 	functions        []VFunc
 }
 
+var (
+	vtable = VTable{
+		name: "aVtable",
+		functions: []VFunc{
+			{
+				name:      "getName",
+				signature: "func() string",
+			},
+		},
+	}
+	a = Class{
+		name:      "A",
+		super:     nil,
+		vtable:    &vtable,
+		overrides: nil,
+	}
+	b = Class{
+		name:   "B",
+		super:  &a,
+		vtable: nil,
+		overrides: []*Override{
+			{
+				overriddenVtable: &vtable,
+				functions: []VFunc{
+					{
+						name:      "getName",
+						signature: "func() string",
+					},
+				},
+			},
+		},
+	}
+	c = Class{
+		name:   "C",
+		super:  &b,
+		vtable: nil,
+		overrides: []*Override{
+			{
+				overriddenVtable: &vtable,
+				functions: []VFunc{
+					{
+						name:      "getName",
+						signature: "func() string",
+					},
+				},
+			},
+		},
+	}
+)
+
 func ImplementClass(file *go_generator.GoFileBuilder, class Class) error {
 	if class.super != nil {
-		file.AddFunction(go_generator.NewGoFunctionBuilder("Super").
+		file.AddFunction(go_generator.NewGoFunctionBuilder("super").
 			SetReceiver("this", class.name, true).
 			AddReturnType("super", "*"+class.super.name).
 			AddImplLines(
@@ -46,7 +100,7 @@ func ImplementClass(file *go_generator.GoFileBuilder, class Class) error {
 
 	if class.vtable != nil {
 		vtableStruct := go_generator.NewGoStructBuilder(class.vtable.name)
-		vtableStruct.AddVar(fmt.Sprintf("is%vInit", class.vtable.name), "bool")
+		vtableStruct.AddVar(class.vtable.IsInitName(), "bool")
 		for _, function := range class.vtable.functions {
 			vtableStruct.AddVar(function.name, function.signature)
 		}
@@ -57,28 +111,30 @@ func ImplementClass(file *go_generator.GoFileBuilder, class Class) error {
 		SetReceiver("this", class.name, true)
 	initExitConditions := []string{}
 	if class.vtable != nil {
-		initExitConditions = append(initExitConditions, fmt.Sprintf("this.is%vInit", class.vtable.name))
+		initExitConditions = append(initExitConditions, "this."+class.vtable.IsInitName())
 	}
 	if class.overrides != nil {
 		for _, override := range class.overrides {
-			initExitConditions = append(initExitConditions, fmt.Sprintf("this.is%vInit", override.overriddenVtable))
+			initExitConditions = append(initExitConditions, "this."+override.overriddenVtable.IsInitName())
 		}
 	}
 	if len(initExitConditions) > 0 {
 		initFunc.AddImplLines(
 			fmt.Sprintf("if %v {", strings.Join(initExitConditions, " && ")),
-			"\treturn",
+			"return",
 			"}",
 			"",
 		)
 	}
 
 	if class.super != nil {
-		initFunc.AddImplLines(fmt.Sprintf("(&this.%v).initClass()", class.super.name))
+		initFunc.AddImplLines(fmt.Sprintf("(&this.%v).initClass()", class.super.name), "")
 	}
 
 	if class.vtable != nil {
-		initFunc.AddImplLines(fmt.Sprintf("this.is%vInit = true", class.vtable.name))
+		initFunc.AddImplLines(
+			fmt.Sprintf("// Initializing VTable '%v'", class.vtable.name),
+			fmt.Sprintf("this.%v = true", class.vtable.IsInitName()))
 		for _, function := range class.vtable.functions {
 			initFunc.AddImplLines(fmt.Sprintf("this.%v = this.%vImpl", function.name, function.name))
 		}
@@ -86,6 +142,7 @@ func ImplementClass(file *go_generator.GoFileBuilder, class Class) error {
 
 	if class.overrides != nil {
 		for _, override := range class.overrides {
+			initFunc.AddImplLines(fmt.Sprintf("// Initializing Overrides for VTable '%v'", override.overriddenVtable.name))
 			for _, function := range override.functions {
 				initFunc.AddImplLines(fmt.Sprintf("this.%v = this.%vImpl", function.name, function.name))
 			}
@@ -134,56 +191,18 @@ func main() {
 	}
 
 	outputFile := inputFile[:len(inputFile)-len(".go")] + "_goop.go"
-	file := go_generator.NewGoFileBuilder("github.com/tadnir/goop", packageData.GetName())
-	err = ImplementClass(file, Class{
-		name: "C",
-		super: &Class{
-			name: "B",
-			super: &Class{
-				name:  "A",
-				super: nil,
-				vtable: &VTable{
-					name: "AVtable",
-					functions: []VFunc{
-						{
-							name:      "getName",
-							signature: "func() string",
-						},
-					},
-				},
-				overrides: nil,
-			},
-			vtable: nil,
-			overrides: []*Override{
-				{
-					overriddenVtable: "AVtable",
-					functions: []VFunc{
-						{
-							name:      "getName",
-							signature: "func() string",
-						},
-					},
-				},
-			},
-		},
-		vtable: nil,
-		overrides: []*Override{
-			{
-				overriddenVtable: "AVtable",
-				functions: []VFunc{
-					{
-						name:      "getName",
-						signature: "func() string",
-					},
-				},
-			},
-		},
-	})
+	file := go_generator.NewGoFileBuilder("goop", packageData.GetName())
+	err = ImplementClass(file, c)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile(filepath.Join(packagePath, outputFile), []byte(file.Build()), 0777)
+	source, err := file.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.WriteFile(filepath.Join(packagePath, outputFile), []byte(source), 0777)
 	if err != nil {
 		panic(err)
 	}
