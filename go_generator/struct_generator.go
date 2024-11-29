@@ -15,13 +15,17 @@ func NewGoStructBuilder(name string) *GoStructBuilder {
 	return &GoStructBuilder{name: name}
 }
 
+func (b *GoStructBuilder) GetName() string {
+	return b.name
+}
+
 func (b *GoStructBuilder) AddVar(name string, varType string) *GoStructBuilder {
 	b.vars = append(b.vars, goVarDecl{name, varType})
 	return b
 }
 
 func (b *GoStructBuilder) AddReceiverFunction(function *GoFunctionBuilder, receiverName string, isRefReceiver bool) *GoStructBuilder {
-	function.setReceiver(receiverName, b.name, isRefReceiver)
+	function.SetReceiver(receiverName, b.name, isRefReceiver)
 	b.functions = append(b.functions, function)
 	return b
 }

@@ -105,19 +105,19 @@ func (b *GoFileBuilder) Build() string {
 		sb.WriteString(")\n")
 	}
 
-	// Functions
-	if len(b.functions) > 0 {
-		for _, function := range b.functions {
-			sb.WriteString("\n")
-			sb.WriteString(function.Build())
-		}
-	}
-
 	// Structs
 	if len(b.structs) > 0 {
 		for _, st := range b.structs {
 			sb.WriteString("\n")
 			sb.WriteString(st.Build())
+		}
+	}
+
+	// Functions
+	if len(b.functions) > 0 {
+		for _, function := range b.functions {
+			sb.WriteString("\n")
+			sb.WriteString(function.Build())
 		}
 	}
 

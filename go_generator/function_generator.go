@@ -47,7 +47,7 @@ func (b *GoFunctionBuilder) AddReturnType(name string, retType string) *GoFuncti
 	return b
 }
 
-func (b *GoFunctionBuilder) setReceiver(name string, receiverType string, isRef bool) *GoFunctionBuilder {
+func (b *GoFunctionBuilder) SetReceiver(name string, receiverType string, isRef bool) *GoFunctionBuilder {
 	b.receiver = &goFuncReceiver{
 		name:         name,
 		ReceiverType: receiverType,
@@ -57,17 +57,12 @@ func (b *GoFunctionBuilder) setReceiver(name string, receiverType string, isRef 
 }
 
 func (b *GoFunctionBuilder) SetImplRaw(impl string) *GoFunctionBuilder {
-	b.impl = impl
+	b.impl = impl + "\n"
 	return b
 }
 
-func (b *GoFunctionBuilder) SetImplLines(impl ...string) *GoFunctionBuilder {
-	b.impl = "\t" + strings.Join(impl, "\n\t")
-	return b
-}
-
-func (b *GoFunctionBuilder) AddImplLine(line string) *GoFunctionBuilder {
-	b.impl += "\n\t" + line
+func (b *GoFunctionBuilder) AddImplLines(impl ...string) *GoFunctionBuilder {
+	b.impl += "\t" + strings.Join(impl, "\n\t") + "\n"
 	return b
 }
 
@@ -90,5 +85,5 @@ func (b *GoFunctionBuilder) Build() string {
 		retVals += " "
 	}
 
-	return fmt.Sprintf("func %v%v(%v) %v{\n%v\n}\n", receiver, b.name, parameters, retVals, b.impl)
+	return fmt.Sprintf("func %v%v(%v) %v{\n%v}\n", receiver, b.name, parameters, retVals, b.impl)
 }
