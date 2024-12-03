@@ -2,10 +2,13 @@ package package_parser
 
 import (
 	"fmt"
+	"github.com/tadnir/goop/utils"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -132,8 +135,8 @@ func Parse(path string) (packageName string, structs []*Struct, err error) {
 				panic(fmt.Errorf("Unknown type %T %v", f.Type, f.Type))
 			}
 		}
-		retTypes := Map(d.Type.Results.List, typeToString)
-		paramTypes := Map(d.Type.Params.List, typeToString)
+		retTypes := utils.Map(slices.Values(d.Type.Results.List), typeToString)
+		paramTypes := utils.Map(slices.Values(d.Type.Params.List), typeToString)
 		//fmt.Printf("func (%v) %v(%v) (%v)\n", receiver, name, paramTypes, retTypes)
 
 		structByName[receiver].Functions = append(structByName[receiver].Functions,
@@ -204,6 +207,6 @@ func Parse(path string) (packageName string, structs []*Struct, err error) {
 		//}
 	}
 
-	structs = MapItems(structByName)
+	structs = slices.Collect(maps.Values(structByName))
 	return
 }

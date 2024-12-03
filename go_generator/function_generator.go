@@ -2,6 +2,8 @@ package go_generator
 
 import (
 	"fmt"
+	"github.com/tadnir/goop/utils"
+	"slices"
 	"strings"
 )
 
@@ -76,8 +78,8 @@ func (b *GoFunctionBuilder) Build() string {
 		receiver = fmt.Sprintf("(%v %v%v) ", b.receiver.name, ref, b.receiver.ReceiverType)
 	}
 
-	parameters := strings.Join(Map(b.params, goVarDecl.String), ", ")
-	retVals := strings.Join(Map(b.retVals, goVarDecl.String), ", ")
+	parameters := strings.Join(utils.Map(slices.Values(b.params), goVarDecl.String), ", ")
+	retVals := strings.Join(utils.Map(slices.Values(b.retVals), goVarDecl.String), ", ")
 	if len(b.retVals) > 0 {
 		retVals = fmt.Sprintf("(%v)", retVals)
 	}

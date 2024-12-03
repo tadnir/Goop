@@ -5,7 +5,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"path/filepath"
+	"slices"
 )
 
 type GoFile struct {
@@ -86,7 +88,7 @@ func ParsePackageFile(packagePath string, fileName string) (*GoFile, error) {
 }
 
 func (file *GoFile) GetStructs() []*Struct {
-	return MapItems(file.structs)
+	return slices.Collect(maps.Values(file.structs))
 }
 
 func (file *GoFile) String() string {

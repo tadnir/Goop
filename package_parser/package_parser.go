@@ -2,9 +2,12 @@ package package_parser
 
 import (
 	"fmt"
+	"github.com/tadnir/goop/utils"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -77,7 +80,7 @@ func (pack *GoPackage) GetName() string {
 }
 
 func (pack *GoPackage) GetFiles() []*GoFile {
-	return MapItems(pack.packageFiles)
+	return slices.Collect(maps.Values(pack.packageFiles))
 }
 
 func (pack *GoPackage) GetFile(fileName string) (*GoFile, error) {
@@ -85,15 +88,15 @@ func (pack *GoPackage) GetFile(fileName string) (*GoFile, error) {
 	if !ok {
 		return nil, fmt.Errorf("file %s not found in package %s", fileName, pack.packageName)
 	}
-	
+
 	return f, nil
 }
 
 func (pack *GoPackage) GetStructs() []*Struct {
-	return Flatten(Map(MapItems(pack.packageFiles), (*GoFile).GetStructs))
+	return slices.Concat(utils.Map(maps.Values(pack.packageFiles), (*GoFile).GetStructs)...)
 }
 
 func (pack *GoPackage) String() string {
 	return fmt.Sprintf("Package: %v\n", pack.packageName) +
-		strings.Join(Map(pack.GetFiles(), (*GoFile).String), "\n")
+		strings.Join(utils.Map(slices.Values(pack.GetFiles()), (*GoFile).String), "\n")
 }
