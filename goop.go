@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/tadnir/goop/go_generator"
 	"github.com/tadnir/goop/package_parser"
+	"github.com/tadnir/goop/utils"
 	"log"
 	"os"
 	"path/filepath"
@@ -23,7 +24,7 @@ type VTable struct {
 }
 
 func (v VTable) IsInitName() string {
-	return fmt.Sprintf("is%vInit", Capitalize(v.name))
+	return fmt.Sprintf("is%vInit", utils.Capitalize(v.name))
 }
 
 type VFunc struct {
@@ -189,6 +190,7 @@ func main() {
 	for _, file := range packageData.GetFiles() {
 		println(file.String())
 	}
+	return
 
 	outputFile := inputFile[:len(inputFile)-len(".go")] + "_goop.go"
 	file := go_generator.NewGoFileBuilder("goop", packageData.GetName())
