@@ -96,6 +96,21 @@ func (pack *GoPackage) GetStructs() []*StructDeclaration {
 	return slices.Concat(utils.Map(maps.Values(pack.packageFiles), (*GoFile).GetStructs)...)
 }
 
+func (pack *GoPackage) GetFunctions() []*Function {
+	return slices.Concat(utils.Map(maps.Values(pack.packageFiles), (*GoFile).GetFunctions)...)
+}
+
+func (pack *GoPackage) GetReceiverFunctions(recieverName string) []*Function {
+	functions := []*Function{}
+	for _, fn := range pack.GetFunctions() {
+		if fn.Receiver != nil && fn.Receiver.RecvType == recieverName {
+			functions = append(functions, fn)
+		}
+	}
+
+	return functions
+}
+
 func (pack *GoPackage) String() string {
 	return fmt.Sprintf("Package: %v\n", pack.packageName) +
 		strings.Join(utils.Map(slices.Values(pack.GetFiles()), (*GoFile).String), "\n")

@@ -3,11 +3,15 @@ package package_parser
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
+	"reflect"
+	"strings"
 )
 
 type FieldDeclaration struct {
 	Name    *string
 	VarType string
+	Tag     reflect.StructTag
 }
 
 func ParseFieldDeclaration(decl *ast.Field) *FieldDeclaration {
@@ -18,13 +22,21 @@ func ParseFieldDeclaration(decl *ast.Field) *FieldDeclaration {
 		name = &decl.Names[0].Name
 	}
 
+	var tag reflect.StructTag
+	if decl.Tag != nil {
+		if decl.Tag.Kind != token.STRING {
+			panic(fmt.Sprintf("unexpected tag type: %+v", decl.Tag))
+		}
+		tag = reflect.StructTag(strings.Trim(decl.Tag.Value, "`"))
+	}
+
 	switch expr := decl.Type.(type) {
 	case *ast.Ident:
-		return &FieldDeclaration{Name: name, VarType: expr.String()}
+		return &FieldDeclaration{Name: name, VarType: expr.String(), Tag: tag}
 	case *ast.StarExpr:
-		return &FieldDeclaration{Name: name, VarType: "*" + expr.X.(*ast.Ident).String()}
+		return &FieldDeclaration{Name: name, VarType: "*" + expr.X.(*ast.Ident).String(), Tag: tag}
 	default:
-		panic(fmt.Sprintf("unknown type %T", expr))
+		panic(fmt.Sprintf("unknown field type %T", expr))
 	}
 }
 

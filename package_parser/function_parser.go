@@ -87,6 +87,15 @@ func (f *Function) Declaration() string {
 	return sb.String()
 }
 
+func (f *Function) Signature() string {
+	parameters := strings.Join(utils.Map(slices.Values(f.ArgumentTypes), (*FieldDeclaration).String), ", ")
+	returns := ""
+	if f.ReturnTypes != nil {
+		returns = fmt.Sprintf(" (%s)", strings.Join(utils.Map(slices.Values(f.ReturnTypes), (*FieldDeclaration).String), ", "))
+	}
+	return fmt.Sprintf("func (%s)%s", parameters, returns)
+}
+
 func (f *Function) String() string {
 	var sb strings.Builder
 	if f.Doc != nil {
