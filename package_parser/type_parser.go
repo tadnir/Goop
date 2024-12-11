@@ -78,7 +78,7 @@ func (s *StructDeclaration) String() string {
 	for _, v := range s.Variables {
 		sb.WriteString(fmt.Sprintf("\t%v\n", v))
 	}
-	sb.WriteString("}")
+	sb.WriteString("}\n")
 	return sb.String()
 }
 
@@ -91,6 +91,6 @@ func (s *InterfaceDeclaration) String() string {
 	}
 
 	sb.WriteString(fmt.Sprintf("type %v interface {", s.Name))
-	sb.WriteString("}")
+	sb.WriteString("}\n")
 	return sb.String()
 }
