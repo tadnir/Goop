@@ -4,90 +4,64 @@ import (
 	"fmt"
 	"github.com/tadnir/goop/go_generator"
 	"github.com/tadnir/goop/package_parser"
-	"github.com/tadnir/goop/utils"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-type Class struct {
-	name      string
-	super     *Class
-	vtable    *VTable
-	overrides []*Override
-}
+// Example data structure for the implement function
+//var (
+//	vtable = VTable{
+//		name: "aVtable",
+//		functions: []VFunc{
+//			{
+//				name:      "getName",
+//				signature: "func() string",
+//			},
+//		},
+//	}
+//	a = Class{
+//		name:      "A",
+//		super:     nil,
+//		vtable:    &vtable,
+//		overrides: nil,
+//	}
+//	b = Class{
+//		name:   "B",
+//		super:  &a,
+//		vtable: nil,
+//		overrides: []*Override{
+//			{
+//				overriddenVtable: &vtable,
+//				functions: []VFunc{
+//					{
+//						name:      "getName",
+//						signature: "func() string",
+//					},
+//				},
+//			},
+//		},
+//	}
+//	c = Class{
+//		name:   "C",
+//		super:  &b,
+//		vtable: nil,
+//		overrides: []*Override{
+//			{
+//				overriddenVtable: &vtable,
+//				functions: []VFunc{
+//					{
+//						name:      "getName",
+//						signature: "func() string",
+//					},
+//				},
+//			},
+//		},
+//	}
+//)
 
-type VTable struct {
-	name      string
-	functions []VFunc
-}
-
-func (v VTable) IsInitName() string {
-	return fmt.Sprintf("is%vInit", utils.Capitalize(v.name))
-}
-
-type VFunc struct {
-	name      string
-	signature string
-}
-
-type Override struct {
-	overriddenVtable *VTable
-	functions        []VFunc
-}
-
-var (
-	vtable = VTable{
-		name: "aVtable",
-		functions: []VFunc{
-			{
-				name:      "getName",
-				signature: "func() string",
-			},
-		},
-	}
-	a = Class{
-		name:      "A",
-		super:     nil,
-		vtable:    &vtable,
-		overrides: nil,
-	}
-	b = Class{
-		name:   "B",
-		super:  &a,
-		vtable: nil,
-		overrides: []*Override{
-			{
-				overriddenVtable: &vtable,
-				functions: []VFunc{
-					{
-						name:      "getName",
-						signature: "func() string",
-					},
-				},
-			},
-		},
-	}
-	c = Class{
-		name:   "C",
-		super:  &b,
-		vtable: nil,
-		overrides: []*Override{
-			{
-				overriddenVtable: &vtable,
-				functions: []VFunc{
-					{
-						name:      "getName",
-						signature: "func() string",
-					},
-				},
-			},
-		},
-	}
-)
-
-func ImplementClass(file *go_generator.GoFileBuilder, class Class) error {
+func ImplementClass(file *go_generator.GoFileBuilder, class *Class) error {
 	if class.super != nil {
 		file.AddFunction(go_generator.NewGoFunctionBuilder("super").
 			SetReceiver("this", class.name, true).
@@ -187,16 +161,58 @@ func main() {
 		panic(err)
 	}
 
-	for _, file := range packageData.GetFiles() {
-		println(file.String())
-	}
-	return
+	classes := NewClassesContainer()
+	for _, st := range packageData.GetStructs() {
+		for _, field := range st.Variables {
+			goopTag, isGoop := field.Tag.Lookup("goop")
+			if !isGoop {
+				continue
+			}
 
-	outputFile := inputFile[:len(inputFile)-len(".go")] + "_goop.go"
-	file := go_generator.NewGoFileBuilder("goop", packageData.GetName())
-	err = ImplementClass(file, c)
+			class := classes.GetClass(st.Name)
+			switch goopTag {
+			case "super":
+				fmt.Printf("%s is child of %s!\n", st.Name, field.VarType)
+				class.super = classes.GetClass(field.VarType)
+			case "vtable":
+				fmt.Printf("%s has a vtable named %s!\n", st.Name, field.VarType)
+				class.vtable = &VTable{name: field.VarType, functions: []VFunc{}}
+			default:
+				fmt.Printf("Unknown goop tag '%s'!\n", goopTag)
+			}
+		}
+	}
+
+	for _, cl := range classes.GetClassesSorted() {
+		for _, recvFunc := range packageData.GetReceiverFunctions(cl.name) {
+			if IsVirtualMethod(recvFunc) {
+				// check if any of the parents has this function in it's vtable, if so create an override
+				// if not, if there's a vtable for the struct add it to there
+				// otherwise panic
+				if vtable := cl.ChooseVTable(recvFunc); vtable != nil {
+					fmt.Printf("Overriden %s for %s\n", recvFunc.Name, cl.name)
+					cl.RegisterVirtual(recvFunc, vtable)
+				} else {
+					panic(fmt.Sprintf("Can't find vtable for %s in %s", recvFunc.Name, cl.name))
+				}
+			}
+		}
+	}
+
+	fmt.Printf("%+v", classes)
+
+	fileData, err := packageData.GetFile(inputFile)
 	if err != nil {
 		panic(err)
+	}
+
+	file := go_generator.NewGoFileBuilder("goop", packageData.GetName())
+	for _, st := range fileData.GetStructs() {
+		fmt.Printf("Implementing class %s...\n", st.Name)
+		err = ImplementClass(file, classes.GetClass(st.Name))
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	source, err := file.Build()
@@ -204,6 +220,9 @@ func main() {
 		panic(err)
 	}
 
+	println(source)
+
+	outputFile := inputFile[:len(inputFile)-len(".go")] + "_goop.go"
 	err = os.WriteFile(filepath.Join(packagePath, outputFile), []byte(source), 0777)
 	if err != nil {
 		panic(err)
