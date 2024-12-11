@@ -2,6 +2,7 @@ package package_parser
 
 import (
 	"fmt"
+	"github.com/tadnir/goop/utils"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -15,47 +16,14 @@ type GoFile struct {
 	fileName    string
 	packageName string
 	imports     []*Import
-	structs     map[string]*Struct
-	functions   map[string]*Function
-	variables   map[string]*Variable
+	functions   []*Function
+	structs     map[string]*StructDeclaration
+	interfaces  map[string]*InterfaceDeclaration
+	variables   map[string]*FieldDeclaration
 }
 
-type Struct struct {
-	Name      string
-	Variables []*Variable
-}
-
-type Function struct {
-	Name          string
-	ArgumentTypes []string
-	ReturnTypes   []string
-}
-
-type Variable struct {
-	name    string
-	VarType string
-}
-
-type Import struct {
-	alias *string
-	path  string
-}
-
-func NewImport(path string) *Import {
-	return &Import{alias: nil, path: path}
-}
-
-func NewAliasedImport(path string, alias string) *Import {
-	return &Import{alias: &alias, path: path}
-}
-
-func (f *Function) String() string {
-	return fmt.Sprintf("%s(%v)(%v)", f.Name,
-		strings.Join(f.ArgumentTypes, ", "), strings.Join(f.ReturnTypes, ", "))
-}
-
-func ParsePackageFile(packagePath string, fileName string) (*GoFile, error) {
-	file := &GoFile{fileName: fileName, structs: map[string]*Struct{}}
+func ParseGoFile(packagePath string, fileName string) (*GoFile, error) {
+	file := &GoFile{fileName: fileName, structs: map[string]*StructDeclaration{}, interfaces: map[string]*InterfaceDeclaration{}, variables: map[string]*FieldDeclaration{}}
 	filePath := filepath.Join(packagePath, fileName)
 
 	// Parse the file
@@ -70,57 +38,74 @@ func ParsePackageFile(packagePath string, fileName string) (*GoFile, error) {
 		return nil, fmt.Errorf("Missing package Name in '%s'", filePath)
 	}
 	file.packageName = f.Name.Name
-
-	for _, imp := range f.Imports {
-		if imp.Name != nil {
-			file.imports = append(file.imports, NewAliasedImport(imp.Path.Value, imp.Name.Name))
-		} else {
-			file.imports = append(file.imports, NewImport(imp.Path.Value))
-		}
-	}
+	file.imports = utils.Map(slices.Values(f.Imports), ParseImport)
 
 	// Get declarations
 	for _, decl := range f.Decls {
-		d, ok := decl.(*ast.GenDecl)
-		if !ok || d.Tok != token.TYPE {
-			fmt.Printf("HERERE %+v\n", decl)
-			continue
-		}
-
-		if len(d.Specs) != 1 {
-			return nil, fmt.Errorf("many specs %v", d.Specs)
-		}
-
-		cls, ok := d.Specs[0].(*ast.TypeSpec)
-		if !ok {
-			fmt.Printf("Nothing to do with spec %T\n", d.Specs[0])
-			continue
-		}
-
-		currStruct := NewStruct(cls.Name.Name)
-		for _, field := range cls.Type.(*ast.StructType).Fields.List {
-			if field.Tag == nil {
-				continue
+		switch decl := decl.(type) {
+		case *ast.GenDecl:
+			switch decl.Tok {
+			case token.TYPE:
+				stDecl, inDecl := ParseTypeDeclaration(decl)
+				if stDecl != nil {
+					file.structs[stDecl.Name] = stDecl
+				}
+				if inDecl != nil {
+					file.interfaces[inDecl.Name] = inDecl
+				}
+			case token.VAR:
+				fmt.Printf("var %v\n", decl)
+			case token.CONST:
+				fmt.Printf("const %v\n", decl)
+			default:
+				fmt.Printf("unknown tok: %v\n", decl.Tok)
 			}
-
-			//tag := reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1])
-			//tagValue, ok := tag.Lookup("goop")
-			//if !ok {
-			//	continue
-			//}
-			//
-			//switch tagValue {
-			//case "super":
-			//	currStruct.IsClass = true
-			//	currStruct.Super = &field.Type.(*ast.Ident).Name
-			//case "vtable":
-			//	currStruct.IsClass = true
-			//	currStruct.Vtable = &field.Type.(*ast.Ident).Name
-			//}
-
+		case *ast.FuncDecl:
+			function := ParseFunction(decl)
+			file.functions = append(file.functions, function)
 		}
 
-		file.structs[currStruct.Name] = currStruct
+		//fmt.Printf("%v %T\n", decl, decl)
+		//d, ok := decl.(*ast.GenDecl)
+		//if !ok || d.Tok != token.TYPE {
+		//	fmt.Printf("HERERE %+v\n", decl)
+		//	continue
+		//}
+		//
+		//if len(d.Specs) != 1 {
+		//	return nil, fmt.Errorf("many specs %v", d.Specs)
+		//}
+		//
+		//cls, ok := d.Specs[0].(*ast.TypeSpec)
+		//if !ok {
+		//	fmt.Printf("Nothing to do with spec %T\n", d.Specs[0])
+		//	continue
+		//}
+
+		//currStruct := NewStruct(cls.Name.Name)
+		//for _, field := range cls.Type.(*ast.StructType).Fields.List {
+		//	if field.Tag == nil {
+		//		continue
+		//	}
+		//
+		//	//tag := reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1])
+		//	//tagValue, ok := tag.Lookup("goop")
+		//	//if !ok {
+		//	//	continue
+		//	//}
+		//	//
+		//	//switch tagValue {
+		//	//case "super":
+		//	//	currStruct.IsClass = true
+		//	//	currStruct.Super = &field.Type.(*ast.Ident).Name
+		//	//case "vtable":
+		//	//	currStruct.IsClass = true
+		//	//	currStruct.Vtable = &field.Type.(*ast.Ident).Name
+		//	//}
+		//
+		//}
+		//
+		//file.structs[currStruct.Name] = currStruct
 	}
 
 	//for _, decl := range f.Decls {
@@ -218,7 +203,7 @@ func ParsePackageFile(packagePath string, fileName string) (*GoFile, error) {
 	return file, nil
 }
 
-func (file *GoFile) GetStructs() []*Struct {
+func (file *GoFile) GetStructs() []*StructDeclaration {
 	return slices.Collect(maps.Values(file.structs))
 }
 
@@ -228,11 +213,7 @@ func (file *GoFile) String() string {
 	if len(file.imports) > 0 {
 		sb.WriteString("import (\n")
 		for _, imp := range file.imports {
-			if imp.alias != nil {
-				sb.WriteString(fmt.Sprintf("\t%v %v\n", imp.alias, imp.path))
-			} else {
-				sb.WriteString(fmt.Sprintf("\t%v\n", imp.path))
-			}
+			sb.WriteString(fmt.Sprintf("\t%v\n", imp))
 		}
 		sb.WriteString(")\n")
 	}
@@ -242,19 +223,15 @@ func (file *GoFile) String() string {
 		sb.WriteString("\n")
 	}
 
-	return sb.String()
-}
-
-func NewStruct(name string) *Struct {
-	return &Struct{Name: name}
-}
-
-func (s *Struct) String() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Struct %v {", s.Name))
-	for _, v := range s.Variables {
-		sb.WriteString(fmt.Sprintf("\t%v;\n", v))
+	for _, in := range file.interfaces {
+		sb.WriteString(in.String())
+		sb.WriteString("\n")
 	}
-	sb.WriteString("}")
+
+	for _, fn := range file.functions {
+		sb.WriteString(fn.String())
+		sb.WriteString("\n")
+	}
+
 	return sb.String()
 }

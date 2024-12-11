@@ -60,7 +60,7 @@ func ParsePackage(packageName string, packagePath string, ignoreGenerated bool) 
 			}
 		}
 
-		packFile, err := ParsePackageFile(packagePath, e.Name())
+		packFile, err := ParseGoFile(packagePath, e.Name())
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func (pack *GoPackage) GetFile(fileName string) (*GoFile, error) {
 	return f, nil
 }
 
-func (pack *GoPackage) GetStructs() []*Struct {
+func (pack *GoPackage) GetStructs() []*StructDeclaration {
 	return slices.Concat(utils.Map(maps.Values(pack.packageFiles), (*GoFile).GetStructs)...)
 }
 
