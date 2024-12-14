@@ -1,6 +1,6 @@
 package main
 
-import "goscratch/APackage"
+import "goopexample/APackage"
 
 func main() {
 	a := new(APackage.A).New("John")
